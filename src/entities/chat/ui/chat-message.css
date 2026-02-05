@@ -54,3 +54,46 @@
 .message-content p:last-child {
   margin-bottom: 0;
 }
+
+/* Table styles */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.message-content thead th {
+  background-color: var(--card);
+  color: var(--foreground);
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.message-content tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  vertical-align: top;
+}
+
+.message-content tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.message-content tbody tr:nth-child(even) {
+  background-color: var(--card);
+}
+
+.message-content tbody tr:hover {
+  background-color: var(--border);
+}

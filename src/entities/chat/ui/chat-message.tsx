@@ -2,6 +2,7 @@ import { Avatar, Space, Typography, Image, Tag } from 'antd';
 import { UserOutlined, RobotOutlined, FilePdfOutlined, FileMarkdownOutlined } from '@ant-design/icons';
 import { Message, Attachment } from '../model/types';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useThemeContext } from '@/app/providers/theme-provider';
 import { useQuery } from '@tanstack/react-query';
 import { getDatabaseModels } from '@/entities/models/api/models-api';
@@ -10,6 +11,14 @@ import { supabase } from '@/shared/lib/supabase';
 import './chat-message.css';
 
 const { Text } = Typography;
+
+const markdownComponents = {
+  table: ({ children, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
+    <div className="table-scroll-wrapper">
+      <table {...props}>{children}</table>
+    </div>
+  ),
+};
 
 interface ChatMessageProps {
   message: Message;
@@ -152,7 +161,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               <AttachmentPreview attachments={attachments} isDark={isDark} />
             )}
             <div className="message-content">
-              <Markdown>{content}</Markdown>
+              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</Markdown>
             </div>
           </div>
           <Avatar icon={<UserOutlined />} style={avatarStyle} />
@@ -175,7 +184,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               </Text>
             )}
             <div className="message-content">
-              <Markdown>{content}</Markdown>
+              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</Markdown>
             </div>
           </div>
         </Space>
