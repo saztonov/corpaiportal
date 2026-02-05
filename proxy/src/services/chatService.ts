@@ -73,14 +73,18 @@ class ChatService {
     public async handleStreamChatRequest(payload: ChatRequestPayload, userId: string, res: Response) {
         // Shared logic for both streaming and non-streaming
         await this.checkUserLimits(userId);
-        
+
         let conversationId = payload.conversationId;
         if (!conversationId) {
             conversationId = await this.createConversation(userId, payload.messages);
         }
 
         const userMessage = payload.messages[payload.messages.length - 1];
-        await this.saveMessage(conversationId, userId, 'user', userMessage.content);
+        // Сохраняем сообщение с метаданными вложений (без base64 данных — в БД храним только мету)
+        const attachmentsMeta = userMessage.attachments?.map(att => ({
+            type: att.type, name: att.name, mime_type: att.mime_type, size: att.size,
+        })) || null;
+        await this.saveMessage(conversationId, userId, 'user', userMessage.content, undefined, attachmentsMeta);
         
         // Cost check before proceeding
         const estimatedCost = 0.01; // Assume a small cost for now, can be improved
@@ -186,6 +190,73 @@ class ChatService {
         }
     }
 
+    // Формирует multimodal content для OpenAI/OpenRouter формата
+    private buildOpenAIContent(msg: { content: string; attachments?: any[] }): string | any[] {
+        if (!msg.attachments || msg.attachments.length === 0) {
+            return msg.content;
+        }
+        const parts: any[] = [{ type: 'text', text: msg.content }];
+        for (const att of msg.attachments) {
+            if (att.type === 'image') {
+                parts.push({
+                    type: 'image_url',
+                    image_url: { url: `data:${att.mime_type};base64,${att.data}` },
+                });
+            } else if (att.type === 'pdf') {
+                parts.push({
+                    type: 'file',
+                    file: { filename: att.name, file_data: `data:${att.mime_type};base64,${att.data}` },
+                });
+            } else if (att.type === 'markdown') {
+                parts.push({ type: 'text', text: `\n\n--- Файл: ${att.name} ---\n${att.data}\n---` });
+            }
+        }
+        return parts;
+    }
+
+    // Формирует multimodal content для Claude (Anthropic) формата
+    private buildClaudeContent(msg: { content: string; attachments?: any[] }): string | any[] {
+        if (!msg.attachments || msg.attachments.length === 0) {
+            return msg.content;
+        }
+        const parts: any[] = [];
+        for (const att of msg.attachments) {
+            if (att.type === 'image') {
+                parts.push({
+                    type: 'image',
+                    source: { type: 'base64', media_type: att.mime_type, data: att.data },
+                });
+            } else if (att.type === 'pdf') {
+                parts.push({
+                    type: 'document',
+                    source: { type: 'base64', media_type: 'application/pdf', data: att.data },
+                });
+            } else if (att.type === 'markdown') {
+                parts.push({ type: 'text', text: `\n\n--- Файл: ${att.name} ---\n${att.data}\n---` });
+            }
+        }
+        parts.push({ type: 'text', text: msg.content });
+        return parts;
+    }
+
+    // Формирует multimodal parts для Gemini формата
+    private buildGeminiParts(msg: { content: string; attachments?: any[] }): any[] {
+        const parts: any[] = [];
+        if (msg.attachments && msg.attachments.length > 0) {
+            for (const att of msg.attachments) {
+                if (att.type === 'image') {
+                    parts.push({ inline_data: { mime_type: att.mime_type, data: att.data } });
+                } else if (att.type === 'pdf') {
+                    parts.push({ inline_data: { mime_type: 'application/pdf', data: att.data } });
+                } else if (att.type === 'markdown') {
+                    parts.push({ text: `\n\n--- Файл: ${att.name} ---\n${att.data}\n---` });
+                }
+            }
+        }
+        parts.push({ text: msg.content });
+        return parts;
+    }
+
     private prepareAIRequest(payload: ChatRequestPayload, stream: boolean) {
         const { model, messages, temperature, top_p } = payload;
 
@@ -198,8 +269,6 @@ class ChatService {
             openRouterModelId: routeConfig?.openRouterModelId
         });
 
-        const cleanedMessages = messages.map(({ role, content }) => ({ role, content }));
-
         let targetUrl: string;
         let apiKey: string | undefined;
         let requestBody: any;
@@ -209,11 +278,15 @@ class ChatService {
             targetUrl = OPENROUTER_CONFIG.url;
             apiKey = OPENROUTER_CONFIG.apiKey;
             provider = 'openrouter';
-            requestBody = { 
-                model: routeConfig.openRouterModelId || model,
-                messages: cleanedMessages,
-                stream
-            };
+            const orModelId = routeConfig.openRouterModelId || model;
+            const isClaudeModel = orModelId.startsWith('anthropic/');
+
+            const formattedMessages = messages.map(msg => ({
+                role: msg.role,
+                content: isClaudeModel ? this.buildClaudeContent(msg) : this.buildOpenAIContent(msg),
+            }));
+
+            requestBody = { model: orModelId, messages: formattedMessages, stream };
         } else {
             const providerConfig = AI_PROVIDERS_CONFIG[model];
             if (!providerConfig || !providerConfig.apiKey) {
@@ -222,18 +295,22 @@ class ChatService {
             targetUrl = providerConfig.url;
             apiKey = providerConfig.apiKey;
             provider = providerConfig.provider;
-            
+
             if (provider === 'gemini') {
                  requestBody = {
-                    contents: cleanedMessages
+                    contents: messages
                         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                         .map(msg => ({
                             role: msg.role === 'assistant' ? 'model' : 'user',
-                            parts: [{ text: msg.content }],
+                            parts: this.buildGeminiParts(msg),
                         })),
                  };
             } else {
-                requestBody = { model, messages: cleanedMessages, stream };
+                const formattedMessages = messages.map(msg => ({
+                    role: msg.role,
+                    content: this.buildOpenAIContent(msg),
+                }));
+                requestBody = { model, messages: formattedMessages, stream };
             }
         }
 
@@ -251,7 +328,7 @@ class ChatService {
         if (!apiKey) {
             throw new Error(`API key for provider ${provider} is not configured.`);
         }
-        
+
         return { targetUrl, apiKey, requestBody, provider };
     }
 
@@ -303,16 +380,20 @@ class ChatService {
         return newConversation.id;
     }
 
-    private async saveMessage(conversationId: string, userId: string, role: 'user' | 'assistant', content: string, model?: string) {
+    private async saveMessage(conversationId: string, userId: string, role: 'user' | 'assistant', content: string, model?: string, attachments?: any[] | null) {
+        const insertData: any = {
+            conversation_id: conversationId,
+            user_id: userId,
+            role,
+            content,
+            model,
+        };
+        if (attachments && attachments.length > 0) {
+            insertData.attachments = attachments;
+        }
         const { data, error } = await this.supabase
             .from('messages')
-            .insert({
-                conversation_id: conversationId,
-                user_id: userId,
-                role,
-                content,
-                model,
-            })
+            .insert(insertData)
             .select('id')
             .single();
         if (error) throw error;

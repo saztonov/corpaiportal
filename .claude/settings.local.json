@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"c:\\\\Users\\\\Usr\\\\corpaiportal\\\\supabase\\\\migrations\"\" 2>nul || echo \"No migrations dir \")",
+      "Bash(npx eslint:*)",
+      "Bash(npx:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

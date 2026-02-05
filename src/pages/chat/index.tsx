@@ -96,11 +96,11 @@ const ChatPage = () => {
   }, [user?.id]);
 
   // Wrapper around sendMessage that handles navigation for new conversations
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, attachments?: import('@/entities/chat/model/types').Attachment[]) => {
     const wasCreating = !activeConversation;
     console.log('[ChatPage] Sending message, wasCreating:', wasCreating);
-    
-    await storeSendMessage(message);
+
+    await storeSendMessage(message, attachments);
     
     // If we were creating a new conversation, navigate to it
     if (wasCreating) {

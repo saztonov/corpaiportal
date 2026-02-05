@@ -71,6 +71,7 @@ export const getMessages = async (conversationId: string) => {
     role: msg.role,
     content: msg.content,
     model: modelMap[msg.id] || msg.model || null,
+    attachments: msg.attachments || null,
     conversation_id: msg.conversation_id,
     user_id: msg.user_id,
     created_at: msg.created_at,

@@ -2,12 +2,12 @@ import React from 'react';
 import { Spin } from 'antd';
 import { ChatInputForm } from '@/features/chat-input';
 import { ChatMessage } from '@/entities/chat/ui/chat-message';
-import { Message } from '@/entities/chat/model/types';
+import { Message, Attachment } from '@/entities/chat/model/types';
 import './chat-window.css';
 
 interface ChatWindowProps {
   messages: Message[];
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, attachments?: Attachment[]) => void;
   loading: boolean;
 }
 

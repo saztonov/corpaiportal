@@ -1,6 +1,6 @@
-import { Avatar, Space, Typography } from 'antd';
-import { UserOutlined, RobotOutlined } from '@ant-design/icons';
-import { Message } from '../model/types';
+import { Avatar, Space, Typography, Image, Tag } from 'antd';
+import { UserOutlined, RobotOutlined, FilePdfOutlined, FileMarkdownOutlined } from '@ant-design/icons';
+import { Message, Attachment } from '../model/types';
 import Markdown from 'react-markdown';
 import { useThemeContext } from '@/app/providers/theme-provider';
 import { useQuery } from '@tanstack/react-query';
@@ -48,8 +48,47 @@ const getModelFromUsageLogs = async (messageId: string): Promise<string | null> 
   return data.model || null;
 };
 
+const AttachmentPreview: React.FC<{ attachments: Attachment[]; isDark: boolean }> = ({ attachments, isDark }) => {
+  if (!attachments || attachments.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+      {attachments.map((att, i) => {
+        if (att.type === 'image' && att.data) {
+          return (
+            <Image
+              key={i}
+              src={`data:${att.mime_type};base64,${att.data}`}
+              alt={att.name}
+              style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8 }}
+              placeholder
+            />
+          );
+        }
+        if (att.type === 'pdf') {
+          return (
+            <Tag key={i} icon={<FilePdfOutlined />} color={isDark ? '#3a3a3a' : undefined}
+              style={{ borderColor: isDark ? '#555' : undefined, color: isDark ? '#e0e0e0' : undefined }}>
+              {att.name}
+            </Tag>
+          );
+        }
+        if (att.type === 'markdown') {
+          return (
+            <Tag key={i} icon={<FileMarkdownOutlined />} color={isDark ? '#3a3a3a' : undefined}
+              style={{ borderColor: isDark ? '#555' : undefined, color: isDark ? '#e0e0e0' : undefined }}>
+              {att.name}
+            </Tag>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+};
+
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
-  const { role, content, id, model } = message;
+  const { role, content, id, model, attachments } = message;
   const isUser = role === 'user';
   const { theme } = useThemeContext();
   const isDark = theme === 'dark';
@@ -109,6 +148,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       {isUser ? (
         <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: 12 }}>
           <div className="message-bubble user-bubble">
+            {attachments && attachments.length > 0 && (
+              <AttachmentPreview attachments={attachments} isDark={isDark} />
+            )}
             <div className="message-content">
               <Markdown>{content}</Markdown>
             </div>

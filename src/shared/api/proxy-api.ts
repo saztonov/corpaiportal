@@ -1,9 +1,18 @@
 import { supabase } from '@/shared/lib/supabase';
 import { APIError, NetworkError, parseAPIError } from '@/shared/lib/error-handler';
 
+export interface ChatAttachment {
+    type: 'image' | 'pdf' | 'markdown';
+    name: string;
+    mime_type: string;
+    size: number;
+    data: string; // base64 для изображений/pdf, текст для markdown
+}
+
 export interface ChatMessage {
     role: 'user' | 'assistant' | 'system';
     content: string;
+    attachments?: ChatAttachment[];
 }
 
 export interface ChatRequest {

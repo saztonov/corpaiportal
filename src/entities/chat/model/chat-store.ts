@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 import { queryClient } from '@/app/providers';
-import { Message } from './types';
+import { Message, Attachment } from './types';
 import { getConversations, getMessages, createConversation, saveMessage } from '../api/chat-api';
 import { useAuthStore } from '@/features/auth';
 import { sendAIRequest, ChatMessage, ChatResponse, sendAIRequestStreaming } from '@/shared/api/proxy-api';
@@ -49,7 +49,7 @@ interface ChatState {
   setActiveConversation: (conversationId: string | null) => void;
   setSelectedModel: (model: string) => void;
   setErrorHandler: (handler: ((error: { title: string; content: string }) => void) | null) => void;
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, attachments?: Attachment[]) => void;
   sendRagMessage: (content: string) => Promise<void>;
 }
 
@@ -238,8 +238,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         console.error("Failed to save selected model to localStorage", e);
       }
     },
-    sendMessage: async (content: string) => {
-      get().onSendMessageStart?.(); 
+    sendMessage: async (content: string, attachments?: Attachment[]) => {
+      get().onSendMessageStart?.();
 
       const { activeConversation, selectedModel, messages, lastResponse } = get();
       const { user } = useAuthStore.getState();
@@ -273,6 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         content: content,
         model: selectedModel,
         created_at: new Date().toISOString(),
+        attachments: attachments || null,
       };
       
       // Add optimistic assistant message for streaming
@@ -303,11 +304,20 @@ export const useChatStore = create<ChatState>((set, get) => {
           });
         }
         
-        // Add conversation history
-        conversationHistory.push(...[...messages, optimisticUserMessage].map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        })));
+        // Add conversation history (с вложениями для последнего сообщения)
+        conversationHistory.push(...[...messages, optimisticUserMessage].map(msg => {
+          const chatMsg: ChatMessage = { role: msg.role, content: msg.content };
+          if (msg.attachments && msg.attachments.length > 0) {
+            chatMsg.attachments = msg.attachments.map(att => ({
+              type: att.type,
+              name: att.name,
+              mime_type: att.mime_type,
+              size: att.size,
+              data: att.data,
+            }));
+          }
+          return chatMsg;
+        }));
 
         // Generate hash for cache lookup
         const messagesHash = generateMessagesHash(conversationHistory);
