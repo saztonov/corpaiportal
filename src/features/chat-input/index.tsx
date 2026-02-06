@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Input, Button, Form } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
-import { useChatStore } from '@/entities/chat/model/chat-store';
 import { useThemeContext } from '@/app/providers/theme-provider';
 import { PromptSelector } from '../prompt-selector';
 import { FileUpload } from '../file-upload';
@@ -10,11 +9,17 @@ import type { Attachment } from '@/entities/chat/model/types';
 interface ChatInputFormProps {
   onSendMessage: (message: string, attachments?: Attachment[]) => void;
   loading: boolean;
+  attachments: Attachment[];
+  onAttachmentsChange: (attachments: Attachment[]) => void;
 }
 
-export const ChatInputForm: React.FC<ChatInputFormProps> = ({ onSendMessage, loading }) => {
+export const ChatInputForm: React.FC<ChatInputFormProps> = ({
+  onSendMessage,
+  loading,
+  attachments,
+  onAttachmentsChange,
+}) => {
   const [form] = Form.useForm();
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const { theme } = useThemeContext();
   const isDark = theme === 'dark';
 
@@ -22,14 +27,14 @@ export const ChatInputForm: React.FC<ChatInputFormProps> = ({ onSendMessage, loa
     if (values.message?.trim() || attachments.length > 0) {
       onSendMessage(values.message?.trim() || '', attachments.length > 0 ? attachments : undefined);
       form.resetFields();
-      setAttachments([]);
+      onAttachmentsChange([]);
     }
   };
 
   return (
     <div>
       <PromptSelector />
-      <FileUpload attachments={attachments} onChange={setAttachments} disabled={loading} />
+      <FileUpload attachments={attachments} onChange={onAttachmentsChange} disabled={loading} />
       <Form form={form} onFinish={handleFinish} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
         <Form.Item name="message" style={{ flex: 1, marginRight: 0, marginBottom: 0 }}>
           <Input.TextArea

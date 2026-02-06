@@ -6,7 +6,8 @@
       "Bash(npx:*)",
       "Bash(ls:*)",
       "Bash(npm install:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(npm run lint:*)"
     ]
   }
 }

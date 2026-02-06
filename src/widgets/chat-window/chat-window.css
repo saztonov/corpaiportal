@@ -4,6 +4,7 @@
   height: 100%;
   width: 100%;
   background-color: var(--background);
+  position: relative;
 }
 
 .messages-list {
@@ -21,4 +22,52 @@
   border-top: none;
   background-color: var(--background);
   flex-shrink: 0;
+}
+
+/* Drag-and-drop overlay */
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(24, 144, 255, 0.08);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border: 2px dashed #1890ff;
+  border-radius: 8px;
+  margin: 8px;
+}
+
+.drag-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #1890ff;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.drag-overlay-hint {
+  font-size: 14px;
+  font-weight: 400;
+  color: #8c8c8c;
+}
+
+/* Dark theme */
+.drag-overlay-dark {
+  background-color: rgba(24, 144, 255, 0.12);
+  border-color: #177ddc;
+}
+
+.drag-overlay-dark .drag-overlay-content {
+  color: #177ddc;
+}
+
+.drag-overlay-dark .drag-overlay-hint {
+  color: #a0a0a0;
 }

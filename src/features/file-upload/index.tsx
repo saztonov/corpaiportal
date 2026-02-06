@@ -1,19 +1,9 @@
 import React, { useRef } from 'react';
-import { Button, Tag, Tooltip, message } from 'antd';
-import { PaperClipOutlined, DeleteOutlined, FileImageOutlined, FilePdfOutlined, FileMarkdownOutlined } from '@ant-design/icons';
+import { Button, Tag, Tooltip } from 'antd';
+import { PaperClipOutlined, FileImageOutlined, FilePdfOutlined, FileMarkdownOutlined } from '@ant-design/icons';
 import { useThemeContext } from '@/app/providers/theme-provider';
 import type { Attachment } from '@/entities/chat/model/types';
-
-const ACCEPTED_TYPES: Record<string, { type: Attachment['type']; extensions: string[] }> = {
-    'image/jpeg': { type: 'image', extensions: ['.jpg', '.jpeg'] },
-    'image/png': { type: 'image', extensions: ['.png'] },
-    'application/pdf': { type: 'pdf', extensions: ['.pdf'] },
-    'text/markdown': { type: 'markdown', extensions: ['.md'] },
-};
-
-const ACCEPT_STRING = Object.values(ACCEPTED_TYPES).flatMap(t => t.extensions).join(',');
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-const MAX_FILES = 5;
+import { processFiles, ACCEPT_STRING, MAX_FILES } from '@/shared/lib/process-files';
 
 interface FileUploadProps {
     attachments: Attachment[];
@@ -29,29 +19,6 @@ const getFileIcon = (type: Attachment['type']) => {
     }
 };
 
-const readFileAsBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const result = reader.result as string;
-            // Для base64 убираем префикс data:...;base64,
-            const base64 = result.split(',')[1];
-            resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-};
-
-const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsText(file);
-    });
-};
-
 export const FileUpload: React.FC<FileUploadProps> = ({ attachments, onChange, disabled }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const { theme } = useThemeContext();
@@ -61,62 +28,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ attachments, onChange, d
         const files = e.target.files;
         if (!files) return;
 
-        const remaining = MAX_FILES - attachments.length;
-        if (remaining <= 0) {
-            message.warning(`Максимум ${MAX_FILES} файлов`);
-            return;
+        const newAttachments = await processFiles(files, attachments.length);
+        if (newAttachments.length > 0) {
+            onChange([...attachments, ...newAttachments]);
         }
 
-        const newAttachments: Attachment[] = [];
-
-        for (let i = 0; i < Math.min(files.length, remaining); i++) {
-            const file = files[i];
-
-            if (file.size > MAX_FILE_SIZE) {
-                message.error(`Файл "${file.name}" слишком большой (макс. 20MB)`);
-                continue;
-            }
-
-            const mimeConfig = ACCEPTED_TYPES[file.type];
-            if (!mimeConfig) {
-                // Проверка по расширению для .md файлов (браузер может не определить text/markdown)
-                const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-                const fallback = Object.values(ACCEPTED_TYPES).find(t => t.extensions.includes(ext));
-                if (!fallback) {
-                    message.error(`Неподдерживаемый формат: ${file.name}`);
-                    continue;
-                }
-
-                const data = fallback.type === 'markdown'
-                    ? await readFileAsText(file)
-                    : await readFileAsBase64(file);
-
-                newAttachments.push({
-                    type: fallback.type,
-                    name: file.name,
-                    mime_type: file.type || 'text/markdown',
-                    size: file.size,
-                    data,
-                });
-                continue;
-            }
-
-            const data = mimeConfig.type === 'markdown'
-                ? await readFileAsText(file)
-                : await readFileAsBase64(file);
-
-            newAttachments.push({
-                type: mimeConfig.type,
-                name: file.name,
-                mime_type: file.type,
-                size: file.size,
-                data,
-            });
-        }
-
-        onChange([...attachments, ...newAttachments]);
-
-        // Сброс input для повторного выбора
         if (inputRef.current) {
             inputRef.current.value = '';
         }
@@ -143,7 +59,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ attachments, onChange, d
                 onChange={handleFileSelect}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                <Tooltip title="Прикрепить файл (JPG, PNG, PDF, MD)">
+                <Tooltip title="Прикрепить файл (JPG, PNG, PDF, MD — макс. 30MB)">
                     <Button
                         type="text"
                         icon={<PaperClipOutlined />}
