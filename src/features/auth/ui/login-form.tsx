@@ -1,10 +1,11 @@
 import React from 'react';
 import { Form, Input, Button, notification } from 'antd';
 import { supabase } from '@/shared/lib/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export const LoginForm = () => {
   const [loading, setLoading] = React.useState(false);
+  const navigate = useNavigate();
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -22,7 +23,7 @@ export const LoginForm = () => {
       notification.success({
         message: 'Вход выполнен успешно',
       });
-      // Redirect will be handled by the auth listener and protected routes
+      navigate('/chat', { replace: true });
     }
     setLoading(false);
   };
