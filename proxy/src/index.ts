@@ -60,6 +60,11 @@ async function main() {
 
     // 3. Create Express App
     const app = express();
+
+    // Trust proxy headers (X-Forwarded-For, X-Forwarded-Proto) from Nginx
+    // Required for correct IP detection in rate limiting
+    app.set('trust proxy', 1);
+
     app.use(cors(CORS_OPTIONS));
     app.use(express.json({ limit: `${LIMITS.MAX_MESSAGE_SIZE_BYTES}b` }));
 

@@ -42,6 +42,7 @@ interface ChatState {
   onError: ((error: { title: string; content: string }) => void) | null;
   lastResponse: ChatResponse | null; // Last AI response in memory
   messagesCache: Map<string, Message[]>; // Cache for messages by conversationId
+  conversationAttachments: Map<string, Attachment[]>; // Cache for attachments with data by conversationId
   fetchConversations: (userId: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
   fetchAvailableModels: (userId: string) => Promise<void>;
@@ -131,6 +132,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     onError: null,
     lastResponse: null,
     messagesCache: new Map<string, Message[]>(),
+    conversationAttachments: new Map<string, Attachment[]>(),
     setErrorHandler: (handler) => set({ onError: handler }),
     fetchConversations: async (userId: string) => {
       set({ loading: true });
@@ -275,7 +277,20 @@ export const useChatStore = create<ChatState>((set, get) => {
         created_at: new Date().toISOString(),
         attachments: attachments || null,
       };
-      
+
+      // Сохраняем attachments с data в кэш для текущего диалога
+      if (attachments && attachments.length > 0) {
+        const convId = activeConversation || 'new-conversation';
+        const existingAttachments = get().conversationAttachments.get(convId) || [];
+        const newCache = new Map(get().conversationAttachments);
+        // Добавляем только те attachments, у которых есть data
+        const attachmentsWithData = attachments.filter(att => att.data);
+        if (attachmentsWithData.length > 0) {
+          newCache.set(convId, [...existingAttachments, ...attachmentsWithData]);
+          set({ conversationAttachments: newCache });
+        }
+      }
+
       // Add optimistic assistant message for streaming
       const optimisticAssistantId = nanoid();
       const optimisticAssistantMessage: Message = {
@@ -304,18 +319,38 @@ export const useChatStore = create<ChatState>((set, get) => {
           });
         }
         
-        // Add conversation history (с вложениями для последнего сообщения)
+        // Получаем закэшированные attachments для этого диалога
+        const convId = activeConversation || 'new-conversation';
+        const cachedAttachments = get().conversationAttachments.get(convId) || [];
+
+        // Add conversation history (с вложениями из кэша для user сообщений)
         conversationHistory.push(...[...messages, optimisticUserMessage].map(msg => {
           const chatMsg: ChatMessage = { role: msg.role, content: msg.content };
-          if (msg.attachments && msg.attachments.length > 0) {
-            chatMsg.attachments = msg.attachments.map(att => ({
-              type: att.type,
-              name: att.name,
-              mime_type: att.mime_type,
-              size: att.size,
-              data: att.data,
-            }));
+
+          // Для user сообщений добавляем attachments из кэша (где есть data)
+          if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
+            // Ищем соответствующие attachments в кэше по имени файла
+            const attachmentsWithData = msg.attachments
+              .map(att => {
+                // Если data есть в текущем attachment — используем его
+                if (att.data) return att;
+                // Иначе ищем в кэше по имени
+                const cached = cachedAttachments.find(c => c.name === att.name && c.data);
+                return cached || null;
+              })
+              .filter((att): att is Attachment => att !== null && !!att.data);
+
+            if (attachmentsWithData.length > 0) {
+              chatMsg.attachments = attachmentsWithData.map(att => ({
+                type: att.type,
+                name: att.name,
+                mime_type: att.mime_type,
+                size: att.size,
+                data: att.data!,
+              }));
+            }
           }
+
           return chatMsg;
         }));
 
@@ -417,6 +452,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         console.log('[ChatStore] After response - activeConversation:', activeConversation, 'aiResponseData.id:', aiResponseData.id);
         if (!activeConversation && aiResponseData.id) {
             console.log('[ChatStore] Creating new conversation:', aiResponseData.id);
+
+            // Переносим кэш attachments на новый conversationId
+            const tempAttachments = get().conversationAttachments.get('new-conversation');
+            if (tempAttachments && tempAttachments.length > 0) {
+              const newCache = new Map(get().conversationAttachments);
+              newCache.set(aiResponseData.id, tempAttachments);
+              newCache.delete('new-conversation');
+              set({ conversationAttachments: newCache });
+            }
+
             get().setActiveConversation(aiResponseData.id);
             get().fetchConversations(user.id);
         }

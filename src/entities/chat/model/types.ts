@@ -5,7 +5,7 @@ export interface Attachment {
   name: string;
   mime_type: string;
   size: number;
-  data: string; // base64 для изображений/pdf, текст для markdown
+  data?: string; // base64 для изображений/pdf, текст для markdown. Опционально — может отсутствовать для загруженных из БД.
 }
 
 export interface Message {
