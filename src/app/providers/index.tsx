@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { App as AntApp } from 'antd';
 import { ThemeProvider } from './theme-provider';
@@ -15,24 +15,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const setSession = useAuthStore((state) => state.setSession);
   const setLoading = useAuthStore((state) => state.setLoading);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [lastSessionId, setLastSessionId] = useState<string | null>(null);
+  const lastSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       await setSession(session);
-      setLastSessionId(session?.id ?? null);
+      lastSessionIdRef.current = session?.id ?? null;
       setLoading(false);
       setInitialLoadComplete(true);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Only update if the session ID actually changed (prevent re-renders on reconnect)
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const currentSessionId = session?.id ?? null;
-      if (currentSessionId !== lastSessionId) {
+
+      // Обновляем сессию при:
+      // - TOKEN_REFRESHED: токен обновлён, нужно обновить access_token в store
+      // - SIGNED_IN / SIGNED_OUT: смена пользователя
+      // - Изменение session ID: новая сессия
+      if (
+        event === 'TOKEN_REFRESHED' ||
+        event === 'SIGNED_IN' ||
+        event === 'SIGNED_OUT' ||
+        currentSessionId !== lastSessionIdRef.current
+      ) {
         setSession(session);
-        setLastSessionId(currentSessionId);
+        lastSessionIdRef.current = currentSessionId;
       }
       setLoading(false);
     });
@@ -40,7 +49,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setSession, setLoading, lastSessionId]);
+  }, [setSession, setLoading]);
 
   if (!initialLoadComplete) {
     return <Spin fullscreen />;
