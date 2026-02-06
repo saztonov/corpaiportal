@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth';
 import { supabase } from '@/shared/lib/supabase';
 import { Spin } from 'antd';
 import { UserChangeHandler } from './user-change-handler';
+import { AuthLogoutHandler } from './auth-logout-handler';
 
 export const queryClient = new QueryClient();
 
@@ -52,7 +53,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
               <AntApp>
-                {children}
+                <AuthLogoutHandler>
+                  {children}
+                </AuthLogoutHandler>
               </AntApp>
             </ThemeProvider>
           </QueryClientProvider>

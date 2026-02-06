@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { emitUnauthorized, isLogoutInProgress } from './auth-events';
 
 // Use explicit localhost:3001 for development, relative paths for production
 const getApiBaseUrl = () => {
@@ -22,6 +23,9 @@ export const apiClient = {
     });
 
     if (!response.ok) {
+      if (response.status === 401 && !isLogoutInProgress()) {
+        emitUnauthorized('Session expired');
+      }
       throw new Error(`API error: ${response.statusText}`);
     }
 
@@ -43,6 +47,9 @@ export const apiClient = {
     });
 
     if (!response.ok) {
+      if (response.status === 401 && !isLogoutInProgress()) {
+        emitUnauthorized('Session expired');
+      }
       throw new Error(`API error: ${response.statusText}`);
     }
 
@@ -64,6 +71,9 @@ export const apiClient = {
     });
 
     if (!response.ok) {
+      if (response.status === 401 && !isLogoutInProgress()) {
+        emitUnauthorized('Session expired');
+      }
       throw new Error(`API error: ${response.statusText}`);
     }
 
@@ -83,6 +93,9 @@ export const apiClient = {
     });
 
     if (!response.ok) {
+      if (response.status === 401 && !isLogoutInProgress()) {
+        emitUnauthorized('Session expired');
+      }
       throw new Error(`API error: ${response.statusText}`);
     }
 

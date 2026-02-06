@@ -1,5 +1,6 @@
 import { supabase } from '@/shared/lib/supabase';
 import { APIError, NetworkError, parseAPIError } from '@/shared/lib/error-handler';
+import { emitUnauthorized, isLogoutInProgress } from '@/shared/lib/auth-events';
 
 export interface ChatAttachment {
     type: 'image' | 'pdf' | 'markdown';
@@ -84,7 +85,11 @@ export const sendAIRequest = async (
                 }
             }
             
-            throw parseAPIError(response, errorData);
+            const error = parseAPIError(response, errorData);
+            if (error.status === 401 && !isLogoutInProgress()) {
+                emitUnauthorized('Session expired');
+            }
+            throw error;
         }
 
         const data: ChatResponse = await response.json();
@@ -182,6 +187,9 @@ export const sendAIRequestStreaming = async (
             }
             
             const error = parseAPIError(response, errorData);
+            if (error.status === 401 && !isLogoutInProgress()) {
+                emitUnauthorized('Session expired');
+            }
             actualOnError(error);
             return;
         }
@@ -289,7 +297,11 @@ export const proxyApi = {
                 } catch {
                     // Ignore JSON parse errors
                 }
-                throw parseAPIError(response, errorData);
+                const error = parseAPIError(response, errorData);
+                if (error.status === 401 && !isLogoutInProgress()) {
+                    emitUnauthorized('Session expired');
+                }
+                throw error;
             }
             return response.json();
         } catch (error) {
@@ -324,7 +336,11 @@ export const proxyApi = {
                 } catch {
                     // Ignore JSON parse errors
                 }
-                throw parseAPIError(response, errorData);
+                const error = parseAPIError(response, errorData);
+                if (error.status === 401 && !isLogoutInProgress()) {
+                    emitUnauthorized('Session expired');
+                }
+                throw error;
             }
             return response.json();
         } catch (error) {
@@ -360,7 +376,11 @@ export const proxyApi = {
                 } catch {
                     // Ignore JSON parse errors
                 }
-                throw parseAPIError(response, errorData);
+                const error = parseAPIError(response, errorData);
+                if (error.status === 401 && !isLogoutInProgress()) {
+                    emitUnauthorized('Session expired');
+                }
+                throw error;
             }
             return response.json();
         } catch (error) {
