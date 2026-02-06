@@ -3,39 +3,33 @@
 
 
 su - wstil
+
 Шаг 3. Сохранить текущие .env файлы (бэкап)
 От имени: wstil
-
 
 cp ~/corpaiportal/.env.local ~/env-backup-frontend.txt
 cp ~/corpaiportal/proxy/.env ~/env-backup-proxy.txt
 Примечание: ~/corpaiportal — это симлинк или полный путь /var/www/wstil/data/corpaiportal. Проверьте, что путь корректный:
 
-
 ls -la ~/corpaiportal/
 Если ~/corpaiportal не существует, используйте полный путь:
 
-
 cd /var/www/wstil/data/corpaiportal
+
 Шаг 4. Остановить прокси-сервер
 От имени: wstil
-
-
 pm2 stop corpai-proxy
+
 Шаг 5. Сменить remote-репозиторий на новый
 От имени: wstil
-
-
 cd /var/www/wstil/data/corpaiportal
-
 # Посмотреть текущий remote
 git remote -v
-
 # Сменить URL на новый репозиторий
 git remote set-url origin https://github.com/saztonov/corpaiportal.git
-
 # Проверить, что сменился
 git remote -v
+
 Шаг 6. Получить код из нового репозитория
 От имени: wstil
 
@@ -44,6 +38,10 @@ cd /var/www/wstil/data/corpaiportal
 
 # Скачать все данные из нового репозитория
 git fetch origin
+git pull origin main
+
+
+
 
 # Принудительно обновить код до состояния нового репозитория
 git reset --hard origin/main
@@ -52,7 +50,6 @@ git reset --hard origin/main
 Шаг 7. Восстановить .env файлы
 От имени: wstil
 
-
 cp ~/env-backup-frontend.txt /var/www/wstil/data/corpaiportal/.env.local
 cp ~/env-backup-proxy.txt /var/www/wstil/data/corpaiportal/proxy/.env
 Если .env файлы не менялись и остались на месте после git reset (они в .gitignore), этот шаг можно пропустить. Проверьте:
@@ -60,6 +57,7 @@ cp ~/env-backup-proxy.txt /var/www/wstil/data/corpaiportal/proxy/.env
 
 cat /var/www/wstil/data/corpaiportal/.env.local
 cat /var/www/wstil/data/corpaiportal/proxy/.env
+
 Шаг 8. Обновить зависимости и собрать прокси-сервер
 От имени: wstil
 
