@@ -59,7 +59,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ attachments, onChange, d
                 onChange={handleFileSelect}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                <Tooltip title="Прикрепить файл (JPG, PNG, PDF, MD — макс. 30MB)">
+                <Tooltip title="Прикрепить файл (JPG, PNG, PDF, MD — макс. 30MB)" color="rgba(0, 0, 0, 0.85)">
                     <span style={{ display: 'inline-block' }}>
                         <Button
                             type="text"
