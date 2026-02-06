@@ -112,9 +112,10 @@ class ChatService {
             });
 
             let fullContent = '';
-            
+            let buffer = ''; // Буфер для накопления неполных строк между chunks
+
             console.log('[ChatService] Setting up stream handlers');
-            
+
             aiResponse.data.on('data', (chunk: Buffer) => {
                 console.log('[ChatService] Received chunk from AI provider:', chunk.length, 'bytes');
                 // Reset timeout on each data chunk
@@ -125,17 +126,28 @@ class ChatService {
                          res.end();
                     }
                 }, LIMITS.STREAM_TIMEOUT);
-                
-                try {
-                    const lines = chunk.toString().split('\n').filter((line: string) => line.trim());
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-                            if (data === '[DONE]') {
-                                console.log('[ChatService] Stream completed (DONE)');
-                                continue;
-                            }
-                            
+
+                // Добавляем chunk к буферу
+                buffer += chunk.toString();
+
+                // Разбиваем буфер на строки по \n
+                const lines = buffer.split('\n');
+
+                // Последняя строка может быть неполной — оставляем в буфере
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) continue;
+
+                    if (trimmedLine.startsWith('data: ')) {
+                        const data = trimmedLine.slice(6);
+                        if (data === '[DONE]') {
+                            console.log('[ChatService] Stream completed (DONE)');
+                            continue;
+                        }
+
+                        try {
                             const parsed = JSON.parse(data);
                             if (parsed.choices && parsed.choices[0]?.delta?.content) {
                                 const contentChunk = parsed.choices[0].delta.content;
@@ -143,11 +155,10 @@ class ChatService {
                                 console.log('[ChatService] Writing content chunk:', contentChunk.length, 'chars');
                                 res.write(`data: ${JSON.stringify({ type: 'content', content: contentChunk })}\n\n`);
                             }
+                        } catch(e) {
+                            console.error('[ChatService] Error parsing JSON line:', (e as Error).message);
                         }
                     }
-                } catch(e) {
-                    console.error('[ChatService] Error parsing chunk:', (e as Error).message);
-                    // This can happen with partial JSON chunks, ignore for now
                 }
             });
 
